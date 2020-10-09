@@ -1,5 +1,6 @@
 package com.tanguyantoine.react;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -309,11 +310,12 @@ public class MusicControlModule extends ReactContextBaseJavaModule implements Co
         }
     }
 
+    String artwork = null;
+
+    @SuppressLint("WrongConstant")
     @ReactMethod
     synchronized public void setNowPlaying(ReadableMap metadata) {
         init();
-        if(artworkThread != null && artworkThread.isAlive()) artworkThread.interrupt();
-        artworkThread = null;
 
         md = new MediaMetadataCompat.Builder();
 
@@ -368,42 +370,47 @@ public class MusicControlModule extends ReactContextBaseJavaModule implements Co
         notification.setCustomNotificationIcon(notificationIcon);
 
         if(metadata.hasKey("artwork")) {
-            String artwork = null;
+            String newArtwork = null;
             boolean localArtwork = false;
 
             if(metadata.getType("artwork") == ReadableType.Map) {
-                artwork = metadata.getMap("artwork").getString("uri");
+                newArtwork = metadata.getMap("artwork").getString("uri");
                 localArtwork = true;
             } else {
-                artwork = metadata.getString("artwork");
+                newArtwork = metadata.getString("artwork");
             }
+            if(artwork == null || !artwork.equalsIgnoreCase(newArtwork)){
+                artwork = newArtwork;
+                final String artworkUrl = artwork;
+                final boolean artworkLocal = localArtwork;
 
-            final String artworkUrl = artwork;
-            final boolean artworkLocal = localArtwork;
+                if(artworkThread != null && artworkThread.isAlive()) artworkThread.interrupt();
+                artworkThread = null;
 
-            artworkThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Bitmap bitmap = loadArtwork(artworkUrl, artworkLocal);
+                artworkThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Bitmap bitmap = loadArtwork(artworkUrl, artworkLocal);
 
-                        if (session != null) {
-                            MediaMetadataCompat currentMetadata = session.getController().getMetadata();
-                            MediaMetadataCompat.Builder newBuilder = currentMetadata == null ? new MediaMetadataCompat.Builder() : new MediaMetadataCompat.Builder(currentMetadata);
-                            session.setMetadata(newBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bitmap).build());
+                            if (session != null) {
+                                MediaMetadataCompat currentMetadata = session.getController().getMetadata();
+                                MediaMetadataCompat.Builder newBuilder = currentMetadata == null ? new MediaMetadataCompat.Builder() : new MediaMetadataCompat.Builder(currentMetadata);
+                                session.setMetadata(newBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bitmap).build());
+                            }
+                            if (nb != null) {
+                                nb.setLargeIcon(bitmap);
+                                notification.show(nb, isPlaying);
+                            }
+
+                            artworkThread = null;
+                        }catch (Exception ex){
+                            ex.printStackTrace();
                         }
-                        if (nb != null) {
-                            nb.setLargeIcon(bitmap);
-                            notification.show(nb, isPlaying);
-                        }
-
-                        artworkThread = null;
-                    }catch (Exception ex){
-                        ex.printStackTrace();
                     }
-                }
-            });
-            artworkThread.start();
+                });
+                artworkThread.start();
+            }
         } else {
             md.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, null);
             nb.setLargeIcon(null);
