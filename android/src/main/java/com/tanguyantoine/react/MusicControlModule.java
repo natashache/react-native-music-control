@@ -236,7 +236,7 @@ public class MusicControlModule extends ReactContextBaseJavaModule implements Co
             // The getter method to acquire the service.
             MusicControlNotification.NotificationService notificationService = binder.getService();
 
-            if (notificationService != null) {
+            if (notificationService != null && isPlaying) {
                 notificationService.forceForeground();
             }
             // Release the connection to prevent leaks.
@@ -311,6 +311,13 @@ public class MusicControlModule extends ReactContextBaseJavaModule implements Co
     }
 
     String artwork = null;
+    String title = null;
+    String artist = null;
+    String album = null;
+    String genre = null;
+    String description = null;
+    String date = null;
+    long duration = 0;
 
     @SuppressLint("WrongConstant")
     @ReactMethod
@@ -319,13 +326,13 @@ public class MusicControlModule extends ReactContextBaseJavaModule implements Co
 
         md = new MediaMetadataCompat.Builder();
 
-        String title = metadata.hasKey("title") ? metadata.getString("title") : null;
-        String artist = metadata.hasKey("artist") ? metadata.getString("artist") : null;
-        String album = metadata.hasKey("album") ? metadata.getString("album") : null;
-        String genre = metadata.hasKey("genre") ? metadata.getString("genre") : null;
-        String description = metadata.hasKey("description") ? metadata.getString("description") : null;
-        String date = metadata.hasKey("date") ? metadata.getString("date") : null;
-        long duration = metadata.hasKey("duration") ? (long)(metadata.getDouble("duration") * 1000) : 0;
+        title = metadata.hasKey("title") ? metadata.getString("title") : null;
+        artist = metadata.hasKey("artist") ? metadata.getString("artist") : null;
+        album = metadata.hasKey("album") ? metadata.getString("album") : null;
+        genre = metadata.hasKey("genre") ? metadata.getString("genre") : null;
+        description = metadata.hasKey("description") ? metadata.getString("description") : null;
+        date = metadata.hasKey("date") ? metadata.getString("date") : null;
+        duration = metadata.hasKey("duration") ? (long)(metadata.getDouble("duration") * 1000) : 0;
         int notificationColor = metadata.hasKey("color") ? metadata.getInt("color") : NotificationCompat.COLOR_DEFAULT;
         String notificationIcon = metadata.hasKey("notificationIcon") ? metadata.getString("notificationIcon") : null;
 
@@ -411,6 +418,63 @@ public class MusicControlModule extends ReactContextBaseJavaModule implements Co
                 });
                 artworkThread.start();
             }
+        } else {
+            md.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, null);
+            nb.setLargeIcon(null);
+        }
+
+        session.setMetadata(md.build());
+        session.setActive(true);
+        notification.show(nb, isPlaying);
+    }
+
+
+    synchronized public void updateInfo() {
+        init();
+
+        md = new MediaMetadataCompat.Builder();
+
+        md.putText(MediaMetadataCompat.METADATA_KEY_TITLE, title);
+        md.putText(MediaMetadataCompat.METADATA_KEY_ARTIST, artist);
+        md.putText(MediaMetadataCompat.METADATA_KEY_ALBUM, album);
+        md.putText(MediaMetadataCompat.METADATA_KEY_GENRE, genre);
+        md.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, description);
+        md.putText(MediaMetadataCompat.METADATA_KEY_DATE, date);
+        md.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration);
+
+        nb.setContentTitle(title);
+        nb.setContentText(artist);
+        nb.setContentInfo(album);
+        nb.setColor(NotificationCompat.COLOR_DEFAULT);
+
+        if(artwork != null){
+
+            if(artworkThread != null && artworkThread.isAlive()) artworkThread.interrupt();
+            artworkThread = null;
+
+            artworkThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Bitmap bitmap = loadArtwork(artwork, true);
+
+                        if (session != null) {
+                            MediaMetadataCompat currentMetadata = session.getController().getMetadata();
+                            MediaMetadataCompat.Builder newBuilder = currentMetadata == null ? new MediaMetadataCompat.Builder() : new MediaMetadataCompat.Builder(currentMetadata);
+                            session.setMetadata(newBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bitmap).build());
+                        }
+                        if (nb != null) {
+                            nb.setLargeIcon(bitmap);
+                            notification.show(nb, isPlaying);
+                        }
+
+                        artworkThread = null;
+                    }catch (Exception ex){
+                        ex.printStackTrace();
+                    }
+                }
+            });
+            artworkThread.start();
         } else {
             md.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, null);
             nb.setLargeIcon(null);
@@ -540,6 +604,9 @@ public class MusicControlModule extends ReactContextBaseJavaModule implements Co
                     }
                     return;
                 }
+            case "close":
+                controlValue = PlaybackStateCompat.ACTION_STOP;
+                break;
             default:
                 // Unknown control type, let's just ignore it
                 return;
