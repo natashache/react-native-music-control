@@ -33,7 +33,7 @@ public class MusicControlNotification {
 
     private int smallIcon;
     private int customIcon;
-    private NotificationCompat.Action play, pause, stop, next, previous, skipForward, skipBackward;
+    private NotificationCompat.Action play, pause, stop, next, previous, skipForward, skipBackward, closeNotification;
 
     public MusicControlNotification(MusicControlModule module, ReactApplicationContext context) {
         this.context = context;
@@ -65,6 +65,7 @@ public class MusicControlNotification {
         stop = createAction("stop", "Stop", mask, PlaybackStateCompat.ACTION_STOP, stop);
         next = createAction("next", "Next", mask, PlaybackStateCompat.ACTION_SKIP_TO_NEXT, next);
         previous = createAction("previous", "Previous", mask, PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS, previous);
+        closeNotification = createAction("close", "Close", mask, PlaybackStateCompat.ACTION_STOP, closeNotification);
 
         if (options != null && options.containsKey("skipForward") && (options.get("skipForward") == 10 || options.get("skipForward") == 5 || options.get("skipForward") == 30)) {
             skipForward = createAction("skip_forward_" + options.get("skipForward").toString(), "Skip Forward", mask, PlaybackStateCompat.ACTION_FAST_FORWARD, skipForward);
@@ -91,9 +92,10 @@ public class MusicControlNotification {
         if (skipBackward != null) builder.addAction(skipBackward);
         if (play != null && !isPlaying) builder.addAction(play);
         if (pause != null && isPlaying) builder.addAction(pause);
-        if (stop != null) builder.addAction(stop);
+        //if (stop != null) builder.addAction(stop);
         if (next != null) builder.addAction(next);
         if (skipForward != null) builder.addAction(skipForward);
+        if (closeNotification != null) builder.addAction(closeNotification);
 
         // Set whether notification can be closed based on closeNotification control (default PAUSED)
         if (module.notificationClose == MusicControlModule.NotificationClose.ALWAYS) {
@@ -179,6 +181,7 @@ public class MusicControlNotification {
         return new NotificationCompat.Action(icon, title, i);
     }
 
+
     public static class NotificationService extends Service {
 
         private final LocalBinder binder = new LocalBinder();
@@ -216,7 +219,10 @@ public class MusicControlNotification {
                     if (MusicControlModule.INSTANCE == null || MusicControlModule.INSTANCE.notification == null) {
                         MusicControlModule.INSTANCE.init();
                     }
-                    notification = MusicControlModule.INSTANCE.notification.prepareNotification(MusicControlModule.INSTANCE.nb, false);
+                    notification = MusicControlModule.INSTANCE.notification.prepareNotification(MusicControlModule.INSTANCE.nb, true);
+                    if (MusicControlModule.INSTANCE != null || MusicControlModule.INSTANCE.notification != null) {
+                        MusicControlModule.INSTANCE.updateInfo();
+                    }
                     // call startForeground just after startForegroundService.
                     startForeground(NOTIFICATION_ID, notification);
                 }catch (Exception ex){
@@ -234,7 +240,10 @@ public class MusicControlNotification {
                 if (MusicControlModule.INSTANCE == null || MusicControlModule.INSTANCE.notification == null) {
                     MusicControlModule.INSTANCE.init();
                 }
-                notification = MusicControlModule.INSTANCE.notification.prepareNotification(MusicControlModule.INSTANCE.nb, false);
+                notification = MusicControlModule.INSTANCE.notification.prepareNotification(MusicControlModule.INSTANCE.nb, true);
+                if (MusicControlModule.INSTANCE != null || MusicControlModule.INSTANCE.notification != null) {
+                    MusicControlModule.INSTANCE.updateInfo();
+                }
                 startForeground(NOTIFICATION_ID, notification);
             }catch (Exception ex){
                 ex.printStackTrace();
@@ -248,7 +257,10 @@ public class MusicControlNotification {
                     if (MusicControlModule.INSTANCE == null || MusicControlModule.INSTANCE.notification == null) {
                         MusicControlModule.INSTANCE.init();
                     }
-                    notification = MusicControlModule.INSTANCE.notification.prepareNotification(MusicControlModule.INSTANCE.nb, false);
+                    notification = MusicControlModule.INSTANCE.notification.prepareNotification(MusicControlModule.INSTANCE.nb, true);
+                    if (MusicControlModule.INSTANCE != null || MusicControlModule.INSTANCE.notification != null) {
+                        MusicControlModule.INSTANCE.updateInfo();
+                    }
                     startForeground(NOTIFICATION_ID, notification);
                 }catch (Exception ex){
                     ex.printStackTrace();
